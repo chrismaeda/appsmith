@@ -14,7 +14,7 @@ export class DataSources {
   private locator = ObjectsRegistry.CommonLocators;
 
   private _dsCreateNewTab = "[data-cy=t--tab-CREATE_NEW]";
-  private _addNewDataSource = ".datasources .t--entity-add-btn";
+  private _addNewDataSource = ".t--entity-add-btn.datasources";
   private _createNewPlgin = (pluginName: string) =>
     ".t--plugin-name:contains('" + pluginName + "')";
   private _host = "input[name='datasourceConfiguration.endpoints[0].host']";
@@ -29,6 +29,7 @@ export class DataSources {
   private _testDs = ".t--test-datasource";
   private _saveDs = ".t--save-datasource";
   private _datasourceCard = ".t--datasource";
+  _activeDS = "[data-testid='active-datasource-name']";
   _templateMenu = ".t--template-menu";
   _templateMenuOption = (action: string) =>
     "//div[contains(@class, 't--template-menu')]//div[text()='" + action + "']";
@@ -79,6 +80,25 @@ export class DataSources {
     "//span[text()='" +
     dbName +
     "']/ancestor::div[contains(@class, 't--mock-datasource')][1]";
+  private _createGraphQLDatasource = ".t--createBlankApi-graphql-plugin";
+  _graphqlQueryEditor = ".t--graphql-query-editor .CodeMirror textarea";
+  _graphqlVariableEditor = ".t--graphql-variable-editor .CodeMirror textarea";
+  _graphqlPagination = {
+    _limitVariable: ".t--apiFormPaginationLimitVariable",
+    _limitValue: ".t--apiFormPaginationLimitValue .CodeMirror textarea",
+    _offsetVariable: ".t--apiFormPaginationOffsetVariable",
+    _offsetValue: ".t--apiFormPaginationOffsetValue .CodeMirror textarea",
+    _prevLimitVariable: ".t--apiFormPaginationPrevLimitVariable",
+    _prevLimitValue: ".t--apiFormPaginationPrevLimitValue .CodeMirror textarea",
+    _prevCursorVariable: ".t--apiFormPaginationPrevCursorVariable",
+    _prevCursorValue:
+      ".t--apiFormPaginationPrevCursorValue .CodeMirror textarea",
+    _nextLimitVariable: ".t--apiFormPaginationNextLimitVariable",
+    _nextLimitValue: ".t--apiFormPaginationNextLimitValue .CodeMirror textarea",
+    _nextCursorVariable: ".t--apiFormPaginationNextCursorVariable",
+    _nextCursorValue:
+      ".t--apiFormPaginationNextCursorValue .CodeMirror textarea",
+  };
   _queryDoc = ".t--datasource-documentation-link";
   _globalSearchModal = ".t--global-search-modal";
   _globalSearchInput = (inputText: string) =>
@@ -179,17 +199,17 @@ export class DataSources {
     cy.get(this._createNewPlgin(pluginName))
       .parent("div")
       .trigger("click", { force: true });
+    this.agHelper.WaitUntilEleAppear(this.locator._toastMsg);
+    this.agHelper.AssertElementAbsence(
+      this.locator._specificToast("Duplicate key error"),
+    );
     if (waitForToastDisappear)
       this.agHelper.WaitUntilToastDisappear("datasource created");
     else this.agHelper.AssertContains("datasource created");
   }
 
   public NavigateToDSCreateNew() {
-    cy.get(this._addNewDataSource)
-      .last()
-      .scrollIntoView()
-      .should("be.visible")
-      .click({ force: true });
+    this.agHelper.GetNClick(this._addNewDataSource);
     // cy.get(this._dsCreateNewTab)
     //   .should("be.visible")
     //   .click({ force: true });
@@ -248,6 +268,21 @@ export class DataSources {
     cy.get(this._sectionAuthentication).click();
     cy.get(this._username).type(datasourceFormData["mysql-username"]);
     cy.get(this._password).type(datasourceFormData["mysql-password"]);
+  }
+
+  public FillGraphQLDSForm(datasourceName?: string) {
+    if (datasourceName) {
+      // Change the Graphql Datasource name
+      cy.get(".t--edit-datasource-name").click();
+      cy.get(".t--edit-datasource-name input")
+        .clear()
+        .type(datasourceName, { force: true })
+        .should("have.value", datasourceName)
+        .blur();
+    }
+
+    // Adding Graphql Url
+    cy.get("input[name='url']").type(datasourceFormData.graphqlApiUrl);
   }
 
   public FillFirestoreDSForm() {
@@ -342,8 +377,8 @@ export class DataSources {
         : this._datasourceCardGeneratePageBtn;
 
     this.ee.NavigateToSwitcher("explorer");
-    this.ee.ExpandCollapseEntity("DATASOURCES", false);
-    //this.ee.SelectEntityByName(datasourceName, "DATASOURCES");
+    this.ee.ExpandCollapseEntity("Datasources", false);
+    //this.ee.SelectEntityByName(datasourceName, "Datasources");
     //this.ee.ExpandCollapseEntity(datasourceName, false);
     this.NavigateToActiveTab();
     cy.get(this._datasourceCard)
@@ -358,7 +393,8 @@ export class DataSources {
   }
 
   public CreateQuery(datasourceName: string) {
-    cy.get(this._datasourceCard)
+    cy.get(this._datasourceCard, { withinSubject: null })
+      .find(this._activeDS)
       .contains(datasourceName)
       .scrollIntoView()
       .should("be.visible")
@@ -405,7 +441,7 @@ export class DataSources {
   ) {
     this.agHelper.GetNClick(this._runQueryBtn, 0, true, waitTimeInterval);
     if (toValidateResponse) {
-      this.agHelper.Sleep(1500);
+      this.agHelper.Sleep(1000);
       this.agHelper.ValidateNetworkExecutionSuccess(
         "@postExecute",
         expectedStatus,
@@ -467,6 +503,7 @@ export class DataSources {
       this.agHelper.UpdateCodeInput($field, query);
     });
     this.agHelper.AssertAutoSave();
+    this.agHelper.Sleep(500); //waiting a bit before proceeding!
   }
 
   public RunQueryNVerifyResponseViews(
@@ -511,6 +548,98 @@ export class DataSources {
     if (queryName) this.agHelper.RenameWithInPane(queryName);
     this.agHelper.GetNClick(this._templateMenu);
     this.EnterQuery(query);
+  }
+
+  public CreateGraphqlDatasource(datasourceName: string) {
+    this.NavigateToDSCreateNew();
+    //Click on Authenticated Graphql API
+    cy.get(this._createGraphQLDatasource).click({ force: true });
+    //Verify weather Authenticated Graphql Datasource is successfully created.
+    cy.wait("@createDatasource").should(
+      "have.nested.property",
+      "response.body.responseMeta.status",
+      201,
+    );
+
+    this.FillGraphQLDSForm(datasourceName);
+
+    // save datasource
+    cy.get(".t--save-datasource").click({ force: true });
+    cy.wait("@saveDatasource").should(
+      "have.nested.property",
+      "response.body.responseMeta.status",
+      200,
+    );
+  }
+
+  public UpdateGraphqlQueryAndVariable(options?: {
+    query?: string;
+    variable?: string;
+  }) {
+    if (options?.query) {
+      cy.get(this._graphqlQueryEditor)
+        .first()
+        .focus()
+        .type("{selectAll}{backspace}", { force: true })
+        .type("{backspace}", { force: true })
+        .type(options.query);
+    }
+
+    if (options?.variable) {
+      cy.get(this._graphqlVariableEditor)
+        .first()
+        .focus()
+        .type("{selectAll}{backspace}", { force: true })
+        .type("{backspace}", { force: true })
+        .type(options.variable);
+    }
+
+    this.agHelper.Sleep();
+  }
+
+  public UpdateGraphqlPaginationParams(options: {
+    limit?: {
+      variable: string;
+      value: any;
+    };
+    offset?: {
+      variable: string;
+      value: any;
+    };
+  }) {
+    if (options.limit) {
+      // Select Limit Variable from dropdown
+      cy.get(this._graphqlPagination._limitVariable).click({
+        force: true,
+      });
+      cy.get(this._graphqlPagination._limitVariable)
+        .contains(options.limit.variable)
+        .click({ force: true });
+
+      // Set the Limit Value as 1
+      cy.get(this._graphqlPagination._limitValue)
+        .first()
+        .focus()
+        .type(options.limit.value);
+    }
+
+    if (options.offset) {
+      // Select Offset Variable from dropdown
+      cy.get(this._graphqlPagination._offsetVariable).click({
+        force: true,
+      });
+      cy.get(this._graphqlPagination._offsetVariable)
+        .contains(options.offset.variable)
+        .click({ force: true });
+
+      // Set the Limit Value as 1
+      cy.get(this._graphqlPagination._offsetValue)
+        .first()
+        .focus()
+        .type(options.offset.value);
+    }
+
+    this.agHelper.Sleep();
   }
 
   public SetQueryTimeout(queryTimeout = 20000) {

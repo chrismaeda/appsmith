@@ -1,4 +1,3 @@
-import { EEXIST } from "constants";
 import { WIDGET } from "../../../../locators/WidgetLocators";
 import { ObjectsRegistry } from "../../../../support/Objects/Registry";
 
@@ -134,9 +133,10 @@ describe("Autocomplete tests", () => {
 
   it("4. Api data with array of object autocompletion test", () => {
     ApiPage.CreateAndFillApi("https://mock-api.appsmith.com/users");
+    agHelper.Sleep(2000);
     ApiPage.RunAPI();
     // Using same js object
-    EntityExplorer.SelectEntityByName("JSObject1", "QUERIES/JS");
+    EntityExplorer.SelectEntityByName("JSObject1", "Queries/JS");
     agHelper.GetNClick(jsEditor._lineinJsEditor(5));
     agHelper.SelectNRemoveLineText(CommonLocators._codeMirrorTextArea);
     //agHelper.GetNClick(jsEditor._lineinJsEditor(5));
@@ -177,12 +177,10 @@ describe("Autocomplete tests", () => {
     agHelper.TypeText(CommonLocators._codeMirrorTextArea, "data.");
     agHelper.GetNAssertElementText(CommonLocators._hints, "userCollection");
     agHelper.Sleep();
-    agHelper.GetNClickByContains(CommonLocators._hints, "userCollection");
-    agHelper.TypeText(CommonLocators._codeMirrorTextArea, "[0].");
+    agHelper.TypeText(CommonLocators._codeMirrorTextArea, "userCollection[0].");
     agHelper.GetNAssertElementText(CommonLocators._hints, "users");
     agHelper.Sleep();
-    agHelper.GetNClickByContains(CommonLocators._hints, "users");
-    agHelper.TypeText(CommonLocators._codeMirrorTextArea, "[0].");
+    agHelper.TypeText(CommonLocators._codeMirrorTextArea, "users[0].");
     agHelper.GetNAssertElementText(CommonLocators._hints, "label");
     agHelper.GetNAssertElementText(
       CommonLocators._hints,
